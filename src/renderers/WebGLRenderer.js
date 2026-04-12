@@ -2222,7 +2222,7 @@ class WebGLRenderer {
 			}
 
 			materialProperties.currentProgram = program;
-			materialProperties.uniformsList = null;
+			materialProperties.uniformsListDirty = true;
 
 			return program;
 
@@ -2230,10 +2230,11 @@ class WebGLRenderer {
 
 		function getUniformList( materialProperties ) {
 
-			if ( materialProperties.uniformsList === null ) {
+			if ( materialProperties.uniformsListDirty ) {
 
 				const progUniforms = materialProperties.currentProgram.getUniforms();
-				materialProperties.uniformsList = WebGLUniforms.seqWithValue( progUniforms.seq, materialProperties.uniforms );
+				materialProperties.uniformsList = WebGLUniforms.seqWithValue( progUniforms.seq, materialProperties.uniforms, materialProperties.uniformsList );
+				materialProperties.uniformsListDirty = false;
 
 			}
 
@@ -2322,105 +2323,33 @@ class WebGLRenderer {
 
 			if ( material.version === materialProperties.__version ) {
 
-				if ( materialProperties.needsLights && ( materialProperties.lightsStateVersion !== lights.state.version ) ) {
-
-					needsProgramChange = true;
-
-				} else if ( materialProperties.outputColorSpace !== colorSpace ) {
-
-					needsProgramChange = true;
-
-				} else if ( object.isBatchedMesh && materialProperties.batching === false ) {
-
-					needsProgramChange = true;
-
-				} else if ( ! object.isBatchedMesh && materialProperties.batching === true ) {
-
-					needsProgramChange = true;
-
-				} else if ( object.isBatchedMesh && materialProperties.batchingColor === true && object.colorTexture === null ) {
-
-					needsProgramChange = true;
-
-				} else if ( object.isBatchedMesh && materialProperties.batchingColor === false && object.colorTexture !== null ) {
-
-					needsProgramChange = true;
-
-				} else if ( object.isInstancedMesh && materialProperties.instancing === false ) {
-
-					needsProgramChange = true;
-
-				} else if ( ! object.isInstancedMesh && materialProperties.instancing === true ) {
-
-					needsProgramChange = true;
-
-				} else if ( object.isSkinnedMesh && materialProperties.skinning === false ) {
-
-					needsProgramChange = true;
-
-				} else if ( ! object.isSkinnedMesh && materialProperties.skinning === true ) {
-
-					needsProgramChange = true;
-
-				} else if ( object.isInstancedMesh && materialProperties.instancingColor === true && object.instanceColor === null ) {
-
-					needsProgramChange = true;
-
-				} else if ( object.isInstancedMesh && materialProperties.instancingColor === false && object.instanceColor !== null ) {
-
-					needsProgramChange = true;
-
-				} else if ( object.isInstancedMesh && materialProperties.instancingMorph === true && object.morphTexture === null ) {
-
-					needsProgramChange = true;
-
-				} else if ( object.isInstancedMesh && materialProperties.instancingMorph === false && object.morphTexture !== null ) {
-
-					needsProgramChange = true;
-
-				} else if ( materialProperties.envMap !== envMap ) {
-
-					needsProgramChange = true;
-
-				} else if ( material.fog === true && materialProperties.fog !== fog ) {
-
-					needsProgramChange = true;
-
-				} else if ( materialProperties.numClippingPlanes !== undefined &&
-					( materialProperties.numClippingPlanes !== clipping.numPlanes ||
-					materialProperties.numIntersection !== clipping.numIntersection ) ) {
-
-					needsProgramChange = true;
-
-				} else if ( materialProperties.vertexAlphas !== vertexAlphas ) {
-
-					needsProgramChange = true;
-
-				} else if ( materialProperties.vertexTangents !== vertexTangents ) {
-
-					needsProgramChange = true;
-
-				} else if ( materialProperties.morphTargets !== morphTargets ) {
-
-					needsProgramChange = true;
-
-				} else if ( materialProperties.morphNormals !== morphNormals ) {
-
-					needsProgramChange = true;
-
-				} else if ( materialProperties.morphColors !== morphColors ) {
-
-					needsProgramChange = true;
-
-				} else if ( materialProperties.toneMapping !== toneMapping ) {
-
-					needsProgramChange = true;
-
-				} else if ( materialProperties.morphTargetsCount !== morphTargetsCount ) {
-
-					needsProgramChange = true;
-
-				}
+				needsProgramChange =
+					( materialProperties.needsLights && materialProperties.lightsStateVersion !== lights.state.version ) ||
+					materialProperties.outputColorSpace !== colorSpace ||
+					( object.isBatchedMesh && materialProperties.batching === false ) ||
+					( ! object.isBatchedMesh && materialProperties.batching === true ) ||
+					( object.isBatchedMesh && materialProperties.batchingColor === true && object.colorTexture === null ) ||
+					( object.isBatchedMesh && materialProperties.batchingColor === false && object.colorTexture !== null ) ||
+					( object.isInstancedMesh && materialProperties.instancing === false ) ||
+					( ! object.isInstancedMesh && materialProperties.instancing === true ) ||
+					( object.isSkinnedMesh && materialProperties.skinning === false ) ||
+					( ! object.isSkinnedMesh && materialProperties.skinning === true ) ||
+					( object.isInstancedMesh && materialProperties.instancingColor === true && object.instanceColor === null ) ||
+					( object.isInstancedMesh && materialProperties.instancingColor === false && object.instanceColor !== null ) ||
+					( object.isInstancedMesh && materialProperties.instancingMorph === true && object.morphTexture === null ) ||
+					( object.isInstancedMesh && materialProperties.instancingMorph === false && object.morphTexture !== null ) ||
+					materialProperties.envMap !== envMap ||
+					( material.fog === true && materialProperties.fog !== fog ) ||
+					( materialProperties.numClippingPlanes !== undefined &&
+						( materialProperties.numClippingPlanes !== clipping.numPlanes ||
+						materialProperties.numIntersection !== clipping.numIntersection ) ) ||
+					materialProperties.vertexAlphas !== vertexAlphas ||
+					materialProperties.vertexTangents !== vertexTangents ||
+					materialProperties.morphTargets !== morphTargets ||
+					materialProperties.morphNormals !== morphNormals ||
+					materialProperties.morphColors !== morphColors ||
+					materialProperties.toneMapping !== toneMapping ||
+					materialProperties.morphTargetsCount !== morphTargetsCount;
 
 			} else {
 

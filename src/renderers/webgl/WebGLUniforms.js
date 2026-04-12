@@ -1183,9 +1183,10 @@ class WebGLUniforms {
 
 	}
 
-	static seqWithValue( seq, values ) {
+	static seqWithValue( seq, values, optionalTarget ) {
 
-		const r = [];
+		const r = optionalTarget || [];
+		r.length = 0;
 
 		for ( let i = 0, n = seq.length; i !== n; ++ i ) {
 
