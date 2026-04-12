@@ -1,0 +1,195 @@
+
+/**
+ * @module SortUtils
+ * @three_import import * as SortUtils from 'three/addons/utils/SortUtils.js';
+ */
+
+const POWER = 3;
+const BIT_MAX = 32;
+const BIN_BITS = 1 << POWER;
+const BIN_SIZE = 1 << BIN_BITS;
+const BIN_MAX = BIN_SIZE - 1;
+const ITERATIONS = BIT_MAX / BIN_BITS;
+
+const bins = new Array( ITERATIONS );
+const bins_buffer = new ArrayBuffer( ( ITERATIONS + 1 ) * BIN_SIZE * 4 );
+
+let c = 0;
+for ( let i = 0; i < ( ITERATIONS + 1 ); i ++ ) {
+
+	bins[ i ] = new Uint32Array( bins_buffer, c, BIN_SIZE );
+	c += BIN_SIZE * 4;
+
+}
+
+const defaultGet = ( el ) => el;
+
+// Module-level state set at the start of each radixSort call
+const data = [ null, null ];
+let _get = defaultGet;
+let _compare;
+let _accumulate;
+let _recurse;
+
+function compareForward( a, b ) { return a > b; }
+function compareReversed( a, b ) { return a < b; }
+
+function accumulateForward( bin ) {
+
+	for ( let j = 1; j < BIN_SIZE; j ++ )
+		bin[ j ] += bin[ j - 1 ];
+
+}
+
+function accumulateReversed( bin ) {
+
+	for ( let j = BIN_SIZE - 2; j >= 0; j -- )
+		bin[ j ] += bin[ j + 1 ];
+
+}
+
+function recurseForward( cache, depth, start ) {
+
+	let prev = 0;
+	for ( let j = 0; j < BIN_SIZE; j ++ ) {
+
+		const cur = cache[ j ], diff = cur - prev;
+		if ( diff != 0 ) {
+
+			if ( diff > 32 )
+				radixSortBlock( depth + 1, start + prev, diff );
+			else
+				insertionSortBlock( depth + 1, start + prev, diff );
+			prev = cur;
+
+		}
+
+	}
+
+}
+
+function recurseReversed( cache, depth, start ) {
+
+	let prev = 0;
+	for ( let j = BIN_MAX; j >= 0; j -- ) {
+
+		const cur = cache[ j ], diff = cur - prev;
+		if ( diff != 0 ) {
+
+			if ( diff > 32 )
+				radixSortBlock( depth + 1, start + prev, diff );
+			else
+				insertionSortBlock( depth + 1, start + prev, diff );
+			prev = cur;
+
+		}
+
+	}
+
+}
+
+function insertionSortBlock( depth, start, len ) {
+
+	const a = data[ depth & 1 ];
+	const b = data[ ( depth + 1 ) & 1 ];
+
+	for ( let j = start + 1; j < start + len; j ++ ) {
+
+		const p = a[ j ], t = _get( p ) >>> 0;
+		let i = j;
+		while ( i > start ) {
+
+			if ( _compare( _get( a[ i - 1 ] ) >>> 0, t ) )
+				a[ i ] = a[ -- i ];
+			else
+				break;
+
+		}
+
+		a[ i ] = p;
+
+	}
+
+	if ( ( depth & 1 ) == 1 ) {
+
+		for ( let i = start; i < start + len; i ++ )
+			b[ i ] = a[ i ];
+
+	}
+
+}
+
+function radixSortBlock( depth, start, len ) {
+
+	const a = data[ depth & 1 ];
+	const b = data[ ( depth + 1 ) & 1 ];
+
+	const shift = ( 3 - depth ) << POWER;
+	const end = start + len;
+
+	const cache = bins[ depth ];
+	const bin = bins[ depth + 1 ];
+
+	bin.fill( 0 );
+
+	for ( let j = start; j < end; j ++ )
+		bin[ ( _get( a[ j ] ) >>> shift ) & BIN_MAX ] ++;
+
+	_accumulate( bin );
+
+	cache.set( bin );
+
+	for ( let j = end - 1; j >= start; j -- )
+		b[ start + -- bin[ ( _get( a[ j ] ) >>> shift ) & BIN_MAX ] ] = a[ j ];
+
+	if ( depth == ITERATIONS - 1 ) return;
+
+	_recurse( cache, depth, start );
+
+}
+
+/**
+ * Hybrid radix sort from.
+ *
+ * - {@link https://gist.github.com/sciecode/93ed864dd77c5c8803c6a86698d68dab}
+ * - {@link https://github.com/mrdoob/three.js/pull/27202#issuecomment-1817640271}
+ *
+ * Expects unsigned 32b integer values.
+ *
+ * @function
+ * @param {Array<Object>} arr - The array to sort.
+ * @param {Object} opt - The options
+ */
+export const radixSort = ( arr, opt ) => {
+
+	const len = arr.length;
+
+	const options = opt || {};
+	const aux = options.aux || new arr.constructor( len );
+	_get = options.get || defaultGet;
+
+	data[ 0 ] = arr;
+	data[ 1 ] = aux;
+
+	if ( options.reversed ) {
+
+		_compare = compareReversed;
+		_accumulate = accumulateReversed;
+		_recurse = recurseReversed;
+
+	} else {
+
+		_compare = compareForward;
+		_accumulate = accumulateForward;
+		_recurse = recurseForward;
+
+	}
+
+	radixSortBlock( 0, 0, len );
+
+	// Clear references to avoid retaining caller's arrays
+	data[ 0 ] = null;
+	data[ 1 ] = null;
+	_get = defaultGet;
+
+};
